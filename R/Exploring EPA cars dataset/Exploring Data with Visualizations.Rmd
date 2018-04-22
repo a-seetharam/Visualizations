@@ -1,0 +1,228 @@
+---
+title: "Exploring Data with Visualizations: Part 1"
+author: "Abhijith"
+date: "September 21, 2016 (ver. 1)"
+output: html_document
+---
+
+Preface: The automobile industry is one of the largest in the world. Growth of automobile sales can indicate the overall state of the economy, the health of commodities and labour markets, and in can be a leading indicator of practical applications of cutting-edge technologies. The US automotive market was, until recently, the largest for the global industry (now China being the largest). The US auto market is still arguably the best in terms of technology, infrastructure and supply chain integration. One of the remarkable things about the US auto market is the quantum of data that's available. The information ecosystem in the US is robust and unparalleled across the world and provides many opportunities to learn from data. Let's use an EPA dataset to unlock information with visualizations. 
+
+The US Environmental Protection Agency (EPA) collects and documents various attributes from the automotive sector. Let's use this data as an example to illustrate how we can learn more about cars and the US automotive industry. 
+
+The data can be accessed from https://www.fueleconomy.gov/feg/ws/index.shtml#vehicle 
+A copy of the zip file can also be accessed from this repo ("vehicles.csv.zip"). 
+
+Load the required libraries:
+```{r}
+library(ggplot2)
+library(plyr)
+library(reshape2)
+
+```
+Read the dataset
+
+```{r}
+cars <- read.csv("vehicles.csv", stringsAsFactors = F)
+
+```
+Now the dataset is loaded into the cars dataframe (df).
+
+
+A typical way to glance at the data is by using head() function which displays the first 6 rows of the dataframe.
+```{r}
+head(cars)
+```
+
+Let's check out the data dimensions
+```{r}
+nrow(cars)
+ncol(cars)
+
+#Or we can also use the following:
+dim(cars)
+```
+
+The df contains 39704 rows(or observations) of data and 83 features (or attributes).
+
+
+For checking out the attributes, we can use names() function. A lot of the features are abbreviated, but the descriptions are provided on the EPA webpage.
+
+```{r}
+names(cars)
+```
+
+How many years of data does the dataset contain? 
+
+```{r}
+length(unique(cars[, "year"]))
+```
+
+We have data for 36 years.
+
+```{r}
+first_year <- min(cars[, "year"])
+first_year
+
+last_year <- max(cars[, "year"])
+last_year
+```
+
+```{r}
+length(unique(cars$year))
+```
+
+There seem to be so many types of the fuel that power the modern automobile!
+Let's see how many are being captured here.
+```{r}
+table(cars$fuelType1)
+```
+
+Cars come with both auto and manual transmission. How many cars have auto transmission?
+```{r}
+cars$trany[cars$trany == ""] <- NA
+cars$trany2 <- ifelse(substr(cars$trany, 1, 4) == "Auto", "Auto", "Manual")
+
+cars$trany <- as.factor(cars$trany)
+table(cars$trany2)
+```
+
+This throws up a question. We know that some cars are equipped with optional manual transmission (with the default mode being the auto transmission). Are they categorized as auto or manual by the EPA?
+
+Cars are equipped with a supercharger or turbocharger to boost power output with the same displacement. How many cars are equipped with supercharger?
+```{r}
+count(cars$sCharger)
+```
+
+How many cars are equipped with turbocharger?
+```{r}
+count(cars$tCharger)
+```
+
+Looking at the output for the count of superchargers and turbochargers, a couple of points of interest come to mind:
+1. Notice that more cars are equipped with turbochargers, than superchargers.
+2. From a data processing point of view, R is reading the "tCharger" feature as a boolean "TRUE". This is because the presence of a turbocharger is marked by "T", which R is taking to be an abbreviation of "TRUE".  
+
+
+```{r}
+#Let' move on to the next item
+```
+
+For most buyers from the middle class and lower middle, a car's fuel economy is a key factor in the purchase decision. Car's with higher fuel economy tend to attract more buyers from these segments. So how has the fuel economy changed over the years?
+```{r}
+mpgByYr <- ddply(cars, ~year, summarise, avgMPG =  
+                   mean(comb08), avgHghy = mean(highway08), avgCity =  
+                   mean(city08))
+
+ggplot(mpgByYr, aes(year, avgMPG)) + geom_point() +  
+  geom_smooth() + xlab("Year") + ylab("Average MPG") +  
+  ggtitle("All cars")
+```
+
+We observe that the average fuel economy of all the cars has increased markedly from around 2006-07. It makes sense to see that auto manufacturers placed an emphasis on fuel economy because the global oil prices were rising at a record rate between 2004-2008 (global oil price hit a record high of $147.30 in July 2008).   
+
+Since mileage data is not being collected on a passenger-mile basis and categorized by fuel, in this data structure, the increase this could be due to the averaging effect produced by higher number of hybrid (e.g. Prius, Insight), electric (e.g. Tesla) cars and diesel engined cars, which can have effectively higher MPG as compared to regular gasoline cars. Let's see if the gas powered cars have improved in terms of fuel economy.        
+
+
+Let's visualize fuel-types in tabular format. 
+```{r}
+table(cars$fuelType1)
+```
+
+Let's separate the run-of-the-mill gasoline powered cars from the others.
+```{r}
+gasCars <- subset(cars, fuelType1 %in% c("Regular  
+Gasoline", "Premium Gasoline", "Midgrade Gasoline") &  
+                    fuelType2 == "" & atvType != "Hybrid")
+```
+
+The combined highway/urban fuel economy is listed in feature "combo08". How has the average mileage changed over the years for gasoline powered cars? Let's plot and see.
+```{r}
+mpgByYr_Gas <- ddply(gasCars, ~year, summarise, avgMPG =  
+                       mean(comb08))
+
+ggplot(mpgByYr_Gas, aes(year, avgMPG)) + geom_point() +  
+  geom_smooth() + xlab("Year") + ylab("Average MPG") +  
+  ggtitle("Gasoline cars")
+```
+
+We see that gasoline powered cars have been improving in terms of fuel economy for about the last two decades; the average fuel economy has increased significantly since the end of 2010. This would partly be due to a stagflation effect seen in the automotive market, which is the combined impact of higher oil prices and lower ability to afford cars due to a recently onset recession. Improvements in technology is also reflected in increase in fuel economy. 
+
+A car's power output is typically proportional to its engine displacement and the fuel economy is inversely proportional to the displacement. (It's typical in most cases, but there are exceptions.) 
+
+Let's understand some attributes related to engine displacement. Let's start with this: what's the engine displacement capacity across car models and how does engine displacement affect the fuel economy of gasoline powered cars? 
+
+```{r}
+count(gasCars$displ)
+```
+
+```{r}
+
+gasCars$displ <- as.numeric(gasCars$displ)
+
+ggplot(gasCars, aes(displ, comb08)) + geom_point() + geom_smooth()
+```
+
+We observe that fuel economy gasoline cars decreases dramatically as the engine displacement increases. And we also see there are different engine configurations ranging from 2 to 8 cylinders for most cars. Curiously, there seem to be no mainstream cars that are powered with a 7 cylinder engine! (One reason for this could be that large odd-cylinder engines are notoriously hard to balance for a reliable performance.) 
+
+We understand that engine displacement and fuel economy are inversely related. So how has the average displacement changed over the years?
+
+```{r}
+avgCarSize <- ddply(gasCars, ~year, summarise, avgDispl =  mean(displ))
+
+ggplot(avgCarSize, aes(year, avgDispl)) + geom_point() +  
+  geom_smooth() + xlab("Year") + ylab("Average engine displacement (l)")
+```
+
+We can see that the average engine displacement has an almost inverted U-shape. It increased between from around 1985 for about a decade, and somewhat plateaued for almost a decade after 1995. The trend in recent years has been an overall decrease.  
+
+```{r}
+byYear <- ddply(gasCars, ~year, summarise, avgMPG = mean(comb08), avgDispl = mean(displ))
+
+head(byYear)
+```
+
+
+```{r}
+byYear2 = melt(byYear, id = "year") 
+
+levels(byYear2$variable) <- c("Average MPG", "Avg engine displacement")
+
+head(byYear2)
+```
+
+Here's a summary visualization.
+```{r}
+ggplot(byYear2, aes(year, value)) + geom_point() + geom_smooth() + facet_wrap(~variable, ncol = 1, scales =  "free_y") + xlab("Year") + ylab("")
+```
+
+
+Are manual transmission cars more popular than cars with automatic transmission? How has the trend changed over the years?
+
+```{r}
+gasCars4 <- subset(gasCars, cylinders == "4")
+
+ggplot(gasCars4, aes(factor(year), fill = factor(trany2))) +  geom_bar(position = "fill") + labs(x = "Year", y = "Proportion of cars", fill = "Transmission") + theme(axis.text.x = element_text(angle = 45)) + geom_hline(yintercept = 0.5, linetype = 2)
+```
+
+We can see that both transmission types had a fair share of the market, with manual transmissions having a marginal edge over auto transmission until about 2007. In the years after, auto transmission have become more popular than manual. 
+
+```{r}
+ggplot(mpgByYr, aes(year, avgMPG)) + geom_point() + geom_smooth() + xlab("Year") + ylab("Average MPG") + ggtitle("All cars")
+```
+
+```{r}
+carsMake <- ddply(gasCars4, ~year, summarise, numberOfMakes = length(unique(make)))
+```
+
+A 4-cylinder engine configuration has long been considered a "goldilocks" point representing a good balance between power, fuel-economy, and long-term cost of ownership, for a family car. Has the 4-cylinder configuration become more popular in the US auto market. 
+
+```{r}
+ggplot(carsMake, aes(year, numberOfMakes)) + geom_point() + 
+  labs(x = "Year", y = "Number of available makes") + ggtitle("Four cylinder cars")
+```
+
+From a quick eyeball analysis, there doesn't seem to be much change in the popularity of 4-cylinder configuration. 
+
+---
+
+More to come in Part 2 of the post...
